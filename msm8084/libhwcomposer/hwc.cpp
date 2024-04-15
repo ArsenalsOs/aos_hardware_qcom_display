@@ -21,7 +21,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/atomic.h>
 #include <EGL/egl.h>
 #include <utils/Trace.h>
@@ -51,23 +51,23 @@ static int hwc_device_open(const struct hw_module_t* module,
                            struct hw_device_t** device);
 
 static struct hw_module_methods_t hwc_module_methods = {
-    open: hwc_device_open
+    .open = hwc_device_open,
 };
 
 static void reset_panel(struct hwc_composer_device_1* dev);
 
 hwc_module_t HAL_MODULE_INFO_SYM = {
-    common: {
-        tag: HARDWARE_MODULE_TAG,
-        version_major: 2,
-        version_minor: 0,
-        id: HWC_HARDWARE_MODULE_ID,
-        name: "Qualcomm Hardware Composer Module",
-        author: "CodeAurora Forum",
-        methods: &hwc_module_methods,
-        dso: 0,
-        reserved: {0},
-    }
+    .common = {
+        .tag = HARDWARE_MODULE_TAG,
+        .version_major = 2,
+        .version_minor = 0,
+        .id = HWC_HARDWARE_MODULE_ID,
+        .name = "Qualcomm Hardware Composer Module",
+        .author = "CodeAurora Forum",
+        .methods = &hwc_module_methods,
+        .dso = 0,
+        .reserved = {0},
+    },
 };
 
 /* In case of non-hybrid WFD session, we are fooling SF by piggybacking on
@@ -193,6 +193,18 @@ static void setNumActiveDisplays(hwc_context_t *ctx, int numDisplays,
              */
             ctx->numActiveDisplays += 1;
         }
+    }
+}
+
+static bool validDisplay(int disp) {
+    switch(disp) {
+        case HWC_DISPLAY_PRIMARY:
+        case HWC_DISPLAY_EXTERNAL:
+        case HWC_DISPLAY_VIRTUAL:
+            return true;
+            break;
+        default:
+            return false;
     }
 }
 
@@ -387,6 +399,10 @@ static int hwc_eventControl(struct hwc_composer_device_1* dev, int dpy,
     ATRACE_CALL();
     int ret = 0;
     hwc_context_t* ctx = (hwc_context_t*)(dev);
+
+    if (!validDisplay(dpy)) {
+        return -EINVAL;
+    }
     switch(event) {
         case HWC_EVENT_VSYNC:
             if (ctx->vstate.enable == enable)
@@ -418,6 +434,10 @@ static int hwc_setPowerMode(struct hwc_composer_device_1* dev, int dpy,
     ATRACE_CALL();
     hwc_context_t* ctx = (hwc_context_t*)(dev);
     int ret = 0, value = 0;
+
+    if (!validDisplay(dpy)) {
+        return -EINVAL;
+    }
 
     Locker::Autolock _l(ctx->mDrawLock);
     ALOGD_IF(POWER_MODE_DEBUG, "%s: Setting mode %d on display: %d",
@@ -481,6 +501,7 @@ static int hwc_setPowerMode(struct hwc_composer_device_1* dev, int dpy,
         ctx->dpyAttr[dpy].isActive = not(mode == HWC_POWER_MODE_OFF);
         //Deliberate fall through since there is no explicit power mode for
         //virtual displays.
+        [[fallthrough]];
     case HWC_DISPLAY_VIRTUAL:
         if(ctx->dpyAttr[HWC_DISPLAY_VIRTUAL].connected) {
             const int dpy = HWC_DISPLAY_VIRTUAL;
@@ -734,6 +755,10 @@ int hwc_getDisplayConfigs(struct hwc_composer_device_1* dev, int disp,
         uint32_t* configs, size_t* numConfigs) {
     int ret = 0;
     hwc_context_t* ctx = (hwc_context_t*)(dev);
+
+    if (!validDisplay(disp)) {
+        return -EINVAL;
+    }
     disp = getDpyforExternalDisplay(ctx, disp);
     //Currently we allow only 1 config, reported as config id # 0
     //This config is passed in to getDisplayAttributes. Ignored for now.
@@ -764,6 +789,10 @@ int hwc_getDisplayAttributes(struct hwc_composer_device_1* dev, int disp,
         uint32_t /*config*/, const uint32_t* attributes, int32_t* values) {
 
     hwc_context_t* ctx = (hwc_context_t*)(dev);
+
+    if (!validDisplay(disp)) {
+        return -EINVAL;
+    }
     disp = getDpyforExternalDisplay(ctx, disp);
     //If hotpluggable displays(i.e, HDMI, WFD) are inactive return error
     if( (disp != HWC_DISPLAY_PRIMARY) && !ctx->dpyAttr[disp].connected) {

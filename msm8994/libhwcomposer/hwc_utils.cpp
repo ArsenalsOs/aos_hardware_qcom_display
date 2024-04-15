@@ -1015,7 +1015,7 @@ void setListStats(hwc_context_t *ctx,
     ctx->listStats[dpy].secureRGBCount = 0;
     ctx->listStats[dpy].refreshRateRequest = ctx->dpyAttr[dpy].refreshRate;
     uint32_t refreshRate = 0;
-    qdutils::MDPVersion& mdpHw = qdutils::MDPVersion::getInstance();
+//    qdutils::MDPVersion& mdpHw = qdutils::MDPVersion::getInstance();
 
     ctx->listStats[dpy].mAIVVideoMode = false;
     resetROI(ctx, dpy);
@@ -1076,7 +1076,8 @@ void setListStats(hwc_context_t *ctx,
             ctx->listStats[dpy].preMultipliedAlpha = true;
 
 #ifdef DYNAMIC_FPS
-        if (!dpy && mdpHw.isDynFpsSupported() && ctx->mUseMetaDataRefreshRate){
+        qdutils::MDPVersion& mdpHw = qdutils::MDPVersion::getInstance();
+	if (!dpy && mdpHw.isDynFpsSupported() && ctx->mUseMetaDataRefreshRate){
             //dyn fps: get refreshrate from metadata
             //Support multiple refresh rates if they are same
             //else set to  default
@@ -1199,7 +1200,7 @@ bool isRotationDoable(hwc_context_t *ctx, private_handle_t *hnd) {
     // Rotate layers, if it is not secure display buffer and not
     // for the MDP versions below MDP5
     if((!isSecureDisplayBuffer(hnd) && isRotatorSupportedFormat(hnd) &&
-        !ctx->mMDP.version < qdutils::MDSS_V5)
+        !(ctx->mMDP.version < qdutils::MDSS_V5))
                    || isYuvBuffer(hnd)) {
         return true;
     }

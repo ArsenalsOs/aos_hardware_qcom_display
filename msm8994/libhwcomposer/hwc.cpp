@@ -51,22 +51,22 @@ static int hwc_device_open(const struct hw_module_t* module,
                            struct hw_device_t** device);
 
 static struct hw_module_methods_t hwc_module_methods = {
-    open: hwc_device_open
+    .open = hwc_device_open
 };
 
 static void reset_panel(struct hwc_composer_device_1* dev);
 
 hwc_module_t HAL_MODULE_INFO_SYM = {
-    common: {
-        tag: HARDWARE_MODULE_TAG,
-        version_major: 2,
-        version_minor: 0,
-        id: HWC_HARDWARE_MODULE_ID,
-        name: "Qualcomm Hardware Composer Module",
-        author: "CodeAurora Forum",
-        methods: &hwc_module_methods,
-        dso: 0,
-        reserved: {0},
+    .common = {
+        .tag = HARDWARE_MODULE_TAG,
+        .version_major = 2,
+        .version_minor = 0,
+        .id = HWC_HARDWARE_MODULE_ID,
+        .name = "Qualcomm Hardware Composer Module",
+        .author = "CodeAurora Forum",
+        .methods = &hwc_module_methods,
+        .dso = 0,
+        .reserved = {0},
     }
 };
 
@@ -194,6 +194,18 @@ static bool isHotPluggable(hwc_context_t *ctx, int dpy) {
              ctx->mHDMIDisplay->isHDMIPrimaryDisplay()));
 }
 
+static bool validDisplay(int disp) {
+    switch(disp) {
+        case HWC_DISPLAY_PRIMARY:
+        case HWC_DISPLAY_EXTERNAL:
+        case HWC_DISPLAY_VIRTUAL:
+            return true;
+            break;
+        default:
+            return false;
+    }
+}
+
 static void reset(hwc_context_t *ctx, int numDisplays,
                   hwc_display_contents_1_t** displays) {
 
@@ -237,7 +249,7 @@ static void scaleDisplayFrame(hwc_context_t *ctx, int dpy,
     for (size_t i = 0; i < list->numHwLayers; i++) {
         hwc_layer_1_t *layer = &list->hwLayers[i];
         hwc_rect_t& displayFrame = layer->displayFrame;
-        hwc_rect_t sourceCrop = integerizeSourceCrop(layer->sourceCropf);
+//        hwc_rect_t sourceCrop = integerizeSourceCrop(layer->sourceCropf);
         uint32_t layerWidth = displayFrame.right - displayFrame.left;
         uint32_t layerHeight = displayFrame.bottom - displayFrame.top;
         displayFrame.left = (int)(xresRatio * (float)displayFrame.left);
@@ -425,6 +437,10 @@ static int hwc_eventControl(struct hwc_composer_device_1* dev, int dpy,
     ATRACE_CALL();
     int ret = 0;
     hwc_context_t* ctx = (hwc_context_t*)(dev);
+
+    if (!validDisplay(dpy)) {
+        return -EINVAL;
+    }
     switch(event) {
         case HWC_EVENT_VSYNC:
             if (ctx->vstate.enable == enable)
@@ -456,6 +472,10 @@ static int hwc_setPowerMode(struct hwc_composer_device_1* dev, int dpy,
     ATRACE_CALL();
     hwc_context_t* ctx = (hwc_context_t*)(dev);
     int ret = 0, value = 0;
+
+    if (!validDisplay(dpy)) {
+        return -EINVAL;
+    }
 
     Locker::Autolock _l(ctx->mDrawLock);
     ALOGD_IF(POWER_MODE_DEBUG, "%s: Setting mode %d on display: %d",
@@ -517,6 +537,7 @@ static int hwc_setPowerMode(struct hwc_composer_device_1* dev, int dpy,
         }
         //Deliberate fall through since there is no explicit power mode for
         //virtual displays.
+        [[clang::fallthrough]];
     case HWC_DISPLAY_VIRTUAL:
         if(ctx->dpyAttr[HWC_DISPLAY_VIRTUAL].connected) {
             const int dpy = HWC_DISPLAY_VIRTUAL;
@@ -784,6 +805,9 @@ int hwc_getDisplayConfigs(struct hwc_composer_device_1* dev, int disp,
         uint32_t* configs, size_t* numConfigs) {
     hwc_context_t* ctx = (hwc_context_t*)(dev);
 
+    if (!validDisplay(disp)) {
+        return -EINVAL;
+    }
     Locker::Autolock _l(ctx->mDrawLock);
     bool hotPluggable = isHotPluggable(ctx, disp);
     bool isVirtualDisplay = (disp == HWC_DISPLAY_VIRTUAL);
@@ -830,6 +854,9 @@ int hwc_getDisplayAttributes(struct hwc_composer_device_1* dev, int disp,
 
     hwc_context_t* ctx = (hwc_context_t*)(dev);
 
+    if (!validDisplay(disp)) {
+        return -EINVAL;
+    }
     Locker::Autolock _l(ctx->mDrawLock);
     bool hotPluggable = isHotPluggable(ctx, disp);
     bool isVirtualDisplay = (disp == HWC_DISPLAY_VIRTUAL);
@@ -923,6 +950,9 @@ int hwc_getActiveConfig(struct hwc_composer_device_1* dev, int disp)
 {
     hwc_context_t* ctx = (hwc_context_t*)(dev);
 
+    if (!validDisplay(disp)) {
+        return -EINVAL;
+    }
     Locker::Autolock _l(ctx->mDrawLock);
     bool hotPluggable = isHotPluggable(ctx, disp);
     bool isVirtualDisplay = (disp == HWC_DISPLAY_VIRTUAL);
@@ -947,6 +977,9 @@ int hwc_setActiveConfig(struct hwc_composer_device_1* dev, int disp, int index)
 {
     hwc_context_t* ctx = (hwc_context_t*)(dev);
 
+    if (!validDisplay(disp)) {
+        return -EINVAL;
+    }
     Locker::Autolock _l(ctx->mDrawLock);
     bool hotPluggable = isHotPluggable(ctx, disp);
     bool isVirtualDisplay = (disp == HWC_DISPLAY_VIRTUAL);
